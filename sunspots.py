@@ -62,6 +62,16 @@ sns.lineplot(ax=ax2, x='year',y='Sunspots',data=sunspots)
 ax2.set_xlim(1800, 1850)
 plt.show()
 
+#More visuals
+sns.distplot(sunspots, bins=75, kde=False)
+plt.xlabel('Monthly no of Sunspots (median)')
+plt.ylabel('Frequency of Monthly Mean no of Sunspots')
+plt.show()
+
+sns.kdeplot(sunspots['Sunspots'], shade=True)
+plt.xlabel('Monthly no of Sunspots (median)')
+plt.ylabel('Density of Monthly Mean no of Sunspots')
+plt.show()
 
 #ADF and KPSS agree our series is stationary, although JB says it is not normally distributed.
 print(adfuller_test(sunspots))
@@ -70,3 +80,58 @@ print(kpss_test(sunspots))
 print('*'*5)
 print(jb_test(sunspots))
 
+
+#MODELLING: Problem framed as univariate one-step ahead predict problem - could experiment with prediction horizon
+from numpy import array
+from keras.preprocessing.sequence import TimeseriesGenerator
+series = array(sunspots)  #need split into train - test
+
+series = np.squeeze(series)  #because DNNs in first layer only work with 1D array w/ TSGenerator - Comment out when LSTM/CNN/...
+train = series[0:int(len(series)*0.9)] 
+test = series[int(len(series)*0.9):]
+
+
+# define generator
+n_input = 3  #or window_size, variable, potential hyperparameter 
+generatortr = TimeseriesGenerator(series, series, length=n_input, batch_size=1)  #verbose?
+generatorts = TimeseriesGenerator(series, series, length=n_input, batch_size=1)
+
+# number of samples + visual check, script taken from ml mastery - uncomment to confirm
+#print('Samples: %d' % len(generatorts))
+# print each sample
+#for i in range(len(generatorts)):
+#	x, y = generatorts[i]
+#	print('%s => %s' % (x, y))
+
+
+#lstm: [samples, timesteps, features]
+
+from keras.models import Sequential
+from keras.layers import Dense, Flatten, Conv1D, LSTM, Dropout
+
+#TO DO: NEED SCALING!!!!! Also potential hyper (eg normalize or scale ~ (0,1) ? 
+
+#1st NN used, simplistic but still good for practice
+model = Sequential()
+model.add(Dense(250, activation='relu', input_dim=n_input))
+model.add(Dense(250, activation='relu'))
+model.add(Dropout(0.2))
+model.add(Dense(1))
+model.compile(loss='mean_squared_error', optimizer='adam', metrics=['mae'])
+history = model.fit_generator(generatortr, steps_per_epoch=1, 
+                              epochs=30, validation_data=generatorts)
+
+mae = history.history['mae']
+mae_val = history.history['mae_val']
+
+loss = history.history['mse']
+loss_val = history.history['mse']
+
+epochs = range(len(mae))
+plt.plot(epochs, mae);plt.plot(epochs, mae_val) 
+plt.title('Train and Val MAE'); plt.show()
+
+plt.plot(epochs, loss);plt.plot(epochs, loss_val) 
+plt.title('Train and Val Loss'); plt.show()
+
+#TO DO: More models, this repo will focus on NNs
