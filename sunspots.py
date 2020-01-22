@@ -121,11 +121,11 @@ model.compile(loss='mean_squared_error', optimizer='adam', metrics=['mae'])
 history = model.fit_generator(generatortr, steps_per_epoch=1, 
                               epochs=30, validation_data=generatorts)
 
-mae = history.history['mae']
-mae_val = history.history['mae_val']
+mae = history.history['mean_absolute_error']
+mae_val = history.history['val_mean_absolute_error']
 
-loss = history.history['mse']
-loss_val = history.history['mse']
+loss = history.history['loss']
+loss_val = history.history['val_loss']
 
 epochs = range(len(mae))
 plt.plot(epochs, mae);plt.plot(epochs, mae_val) 
