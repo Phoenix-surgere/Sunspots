@@ -84,54 +84,99 @@ print(jb_test(sunspots))
 #MODELLING: Problem framed as univariate one-step ahead predict problem - could experiment with prediction horizon
 from numpy import array
 from keras.preprocessing.sequence import TimeseriesGenerator
-series = array(sunspots)  #need split into train - test
+from sklearn.preprocessing import StandardScaler as SS
 
-series = np.squeeze(series)  #because DNNs in first layer only work with 1D array w/ TSGenerator - Comment out when LSTM/CNN/...
+series = array(sunspots) 
+
+#series = np.squeeze(series)  #because DNNs in first layer only work with 1D array w/ TSGenerator - Comment out when LSTM/CNN/ 1st layer
 train = series[0:int(len(series)*0.9)] 
 test = series[int(len(series)*0.9):]
 
+#Scaling added for NNs
+scaler = SS()
+scaler.fit(train)
+train = scaler.transform(train)
+test = scaler.transform(test)
 
 # define generator
-n_input = 3  #or window_size, variable, potential hyperparameter 
-generatortr = TimeseriesGenerator(series, series, length=n_input, batch_size=1)  #verbose?
-generatorts = TimeseriesGenerator(series, series, length=n_input, batch_size=1)
-
-# number of samples + visual check, script taken from ml mastery - uncomment to confirm
-#print('Samples: %d' % len(generatorts))
-# print each sample
-#for i in range(len(generatorts)):
-#	x, y = generatorts[i]
-#	print('%s => %s' % (x, y))
-
+n_input = 3  #or window_size, potential hyperparameter 
+gentrain = TimeseriesGenerator(series, series, length=n_input, batch_size=1)  #verbose?
+gentest = TimeseriesGenerator(series, series, length=n_input, batch_size=1)
 
 #lstm: [samples, timesteps, features]
 
 from keras.models import Sequential
 from keras.layers import Dense, Flatten, Conv1D, LSTM, Dropout
 
-#TO DO: NEED SCALING!!!!! Also potential hyper (eg normalize or scale ~ (0,1) ? 
+def dnn(train, test):    
+    model = Sequential()
+    model.add(Dense(250, activation='relu', input_dim=n_input))
+    model.add(Dense(250, activation='relu'))
+    model.add(Dropout(0.2))
+    model.add(Dense(1))
 
-#1st NN used, simplistic but still good for practice
-model = Sequential()
-model.add(Dense(250, activation='relu', input_dim=n_input))
-model.add(Dense(250, activation='relu'))
-model.add(Dropout(0.2))
-model.add(Dense(1))
-model.compile(loss='mean_squared_error', optimizer='adam', metrics=['mae'])
-history = model.fit_generator(generatortr, steps_per_epoch=1, 
-                              epochs=30, validation_data=generatorts)
+    model.compile(loss='mean_squared_error', optimizer='adam', metrics=['mae'])
+    histories = model.fit_generator(train, steps_per_epoch=1, 
+                verbose=0 ,epochs=150, validation_data=test)
+    return histories 
 
-mae = history.history['mean_absolute_error']
-mae_val = history.history['val_mean_absolute_error']
+def plot_metrics(history):
 
-loss = history.history['loss']
-loss_val = history.history['val_loss']
+    mae = history.history['mean_absolute_error']
+    mae_val = history.history['val_mean_absolute_error']
+    epochs = range(len(mae))
+    
+    loss = history.history['loss']
+    loss_val = history.history['val_loss']
+    
+    fig, (ax1, ax2) = plt.subplots(nrows=2, figsize=(7,7))
+    #fig.suptitle('Loss and Metrics History')
 
-epochs = range(len(mae))
-plt.plot(epochs, mae);plt.plot(epochs, mae_val) 
-plt.title('Train and Val MAE'); plt.show()
+    ax1.title.set_text('Metrics (MAE) History')
+    ax2.title.set_text('Loss (MSE) History')
+    
+    ax1.set_xlabel('Epochs'); ax2.set_xlabel('Epochs')
+    
+    ax1.plot(epochs, mae, label='Train') 
+    ax1.plot(epochs, mae_val, label='Validation')
+    ax1.legend(loc='best')
+    
+    ax2.plot(epochs, loss, label='Train')
+    ax2.plot(epochs, loss_val, label='Validation') 
+    ax2.legend(loc='best')
+    
+    plt.tight_layout()
+    plt.show()
 
-plt.plot(epochs, loss);plt.plot(epochs, loss_val) 
-plt.title('Train and Val Loss'); plt.show()
+#histories = dnn(gentrain, gentest)  #to run, uncomment squeeze from above, but cannot (yet) run the others
+#plot_metrics(histories)
 
-#TO DO: More models, this repo will focus on NNs
+def CNN(train, test):
+    model = Sequential()
+    model.add(Conv1D(filters=32, kernel_size=2, input_shape=(n_input, 1),
+                     padding='valid', activation='relu'))
+    model.add(MaxPooling1D())
+    model.add(Flatten())
+    model.add(Dense(250, activation='relu'))
+    model.add(Dense(1))
+    model.compile(loss='mean_squared_error', optimizer='adam', metrics=['mae'])
+    history = model.fit_generator(train, steps_per_epoch=1, 
+                epochs=100,validation_data=test, verbose=0)
+    return history
+
+histories = CNN(gentrain, gentest)
+plot_metrics(histories)
+
+def BiLSTM(train, test):
+    model = Sequential()
+    model.add(LSTM(32, input_shape=(n_input,1), return_sequences=True, activation='relu'))
+    model.add(Bidirectional(LSTM(32, activation='relu')))
+    model.add(Dense(250, activation='relu'))
+    model.add(Dense(1))
+    model.compile(loss='mean_squared_error', optimizer='adam', metrics=['mae'])
+    history = model.fit_generator(train, steps_per_epoch=1, 
+                epochs=75,validation_data=test, verbose=1)
+    return history
+
+histories = BiLSTM(gentrain, gentest)
+plot_metrics(histories)
