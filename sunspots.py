@@ -80,6 +80,11 @@ print(kpss_test(sunspots))
 print('*'*5)
 print(jb_test(sunspots))
 
+acf = plot_acf(sunspots, lags=15, alpha=0.5)
+plt.show(acf)
+    
+pacf = plot_pacf(sunspots, lags=15, alpha=0.5)
+plt.show(pacf)
 
 #MODELLING: Problem framed as univariate one-step ahead predict problem - could experiment with prediction horizon
 from numpy import array
