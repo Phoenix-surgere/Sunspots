@@ -185,3 +185,22 @@ def BiLSTM(train, test):
 
 histories = BiLSTM(gentrain, gentest)
 plot_metrics(histories)
+
+def Hybrid(train,test):
+    model = Sequential()
+    model.add(Conv1D(filters=64, kernel_size=2, input_shape=(n_input, 1),
+                     padding='valid', activation='relu'))
+    model.add(MaxPooling1D())
+    model.add(Dropout(0.3))
+    model.add(Bidirectional(LSTM(64, activation='relu', return_sequences=True)))
+    model.add(Bidirectional(LSTM(64, activation='relu')))
+    model.add(Dense(250))
+    model.add(Dense(1))
+    model.compile(loss='mean_squared_error', optimizer='adam', metrics=['mae'])
+    history = model.fit_generator(train, steps_per_epoch=1, 
+            epochs=75,validation_data=test, verbose=1)
+    return history
+
+histories = BiLSTM(gentrain, gentest)
+plot_metrics(histories)
+
