@@ -204,3 +204,19 @@ def Hybrid(train,test):
 histories = BiLSTM(gentrain, gentest)
 plot_metrics(histories)
 
+
+#KERAS FUNCTIONAL API PRACTICE - works so far
+from keras import Input, layers
+from keras.models import Model
+input_tensor = Input(shape=(n_input, ))
+x = layers.Dense(32, activation='relu')(input_tensor)
+x = layers.Dense(32, activation='relu')(x)
+output_tensor = layers.Dense(1)(x)
+model = Model(input_tensor, output_tensor)
+model.summary()
+
+model.compile(loss='mean_squared_error', optimizer='adam', metrics=['mae'])
+history = model.fit_generator(gentrain, steps_per_epoch=1, 
+                epochs=75,validation_data=gentest, verbose=0)
+
+
