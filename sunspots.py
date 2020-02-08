@@ -158,8 +158,8 @@ def MLP(train, test):
     model = Model(input_tensor, output_tensor)
     model.summary()
     model.compile(loss='mean_squared_error', optimizer='adam', metrics=['mae'])
-    history = model.fit_generator(gentrain, steps_per_epoch=1, 
-                    epochs=150,validation_data=gentest, verbose=1)
+    history = model.fit_generator(train, steps_per_epoch=1, 
+                    epochs=150,validation_data=test, verbose=1)
     return history
 
 histories = MLP(gentrain, gentest)
@@ -184,8 +184,8 @@ def CNN(train, test):
     model.summary()
     adam = Adam()
     model.compile(loss='mean_squared_error', optimizer=adam, metrics=['mae'])
-    history = model.fit_generator(gentrain, steps_per_epoch=10, 
-                epochs=50,validation_data=gentest, verbose=1)
+    history = model.fit_generator(train, steps_per_epoch=10, 
+                epochs=50,validation_data=test, verbose=1)
     return history
 
 histories = CNN(gentrain, gentest)
@@ -207,8 +207,8 @@ def BiLSTM(train, test):
     model = Model(input_tensor, output_tensor)
     model.summary()
     model.compile(loss='mean_squared_error', optimizer='adam', metrics=['mae'])
-    history = model.fit_generator(gentrain, steps_per_epoch=1, 
-                    epochs=5,validation_data=gentest, verbose=1)
+    history = model.fit_generator(train, steps_per_epoch=1, 
+                    epochs=5,validation_data=test, verbose=1)
     return history
 
 histories = BiLSTM(gentrain, gentest)
