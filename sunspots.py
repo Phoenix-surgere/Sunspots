@@ -11,9 +11,10 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import numpy as np
 
-##Those are imported from a different, dedicated "helper file" but for now I will let them here
+##Those are imported from a different, dedicated "helper file" but for now I will define them here
 from statsmodels.tsa.stattools import adfuller, kpss
 from statsmodels.stats.stattools import jarque_bera
+
 #define ADF     
 def adfuller_test(timeseries):
     print('H0: Unit Root (Non-Stationary)')
@@ -24,7 +25,6 @@ def adfuller_test(timeseries):
     for key, value in adftest[4].items():
         adfout['Critical Value (%s)'%key] = value
     return adfout
-#replaced print (adfout, kpss_output) with return to avoid none return
 
 #define KPSS
 def kpss_test(timeseries):
@@ -93,7 +93,7 @@ from sklearn.preprocessing import StandardScaler as SS
 
 series = array(sunspots) 
 
-#series = np.squeeze(series)  #because DNNs in first layer only work with 1D array w/ TSGenerator - Comment out when LSTM/CNN/ 1st layer
+#series = np.squeeze(series)  #b/c DNN in first layer only works with 1D array w/ TSGenerator - Comment out when LSTM/CNN/ 1st layer
 train = series[0:int(len(series)*0.9)] 
 test = series[int(len(series)*0.9):]
 
@@ -105,10 +105,9 @@ test = scaler.transform(test)
 
 # define generator -> Need separate gennie for Validation
 n_input = 3  #or window_size, potential hyperparameter 
-gentrain = TimeseriesGenerator(series, series, length=n_input, batch_size=1)  #verbose?
+gentrain = TimeseriesGenerator(series, series, length=n_input, batch_size=1) 
+#genval = ...  figure out how to properly set this up
 gentest = TimeseriesGenerator(series, series, length=n_input, batch_size=1)
-
-#lstm shape: [samples, timesteps, features]
 
 def plot_metrics(history):
 
@@ -139,7 +138,7 @@ def plot_metrics(history):
     plt.show()
     
 
-#NEED BASELINE! -------
+#NEED BASELINE! ------- Use generators, for even comparisons
 
 
 #-------- /Baseline resuls 
@@ -195,6 +194,7 @@ plot_metrics(histories)
 
 #LSTM 
 def BiLSTM(train, test):
+    #lstm shape: [samples, timesteps, features]
     input_tensor = Input(shape=(n_input, 1))
     x = layers.Bidirectional(layers.LSTM(32, return_sequences=True))(input_tensor)
     x = layers.LeakyReLU()(x)
