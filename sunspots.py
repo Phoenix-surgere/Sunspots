@@ -103,27 +103,12 @@ scaler.fit(train)
 train = scaler.transform(train)
 test = scaler.transform(test)
 
-# define generator
+# define generator -> Need separate gennie for Validation
 n_input = 3  #or window_size, potential hyperparameter 
 gentrain = TimeseriesGenerator(series, series, length=n_input, batch_size=1)  #verbose?
 gentest = TimeseriesGenerator(series, series, length=n_input, batch_size=1)
 
-#lstm: [samples, timesteps, features]
-
-from keras.models import Sequential
-from keras.layers import Dense, Flatten, Conv1D, LSTM, Dropout
-
-def dnn(train, test):    
-    model = Sequential()
-    model.add(Dense(250, activation='relu', input_dim=n_input))
-    model.add(Dense(250, activation='relu'))
-    model.add(Dropout(0.2))
-    model.add(Dense(1))
-
-    model.compile(loss='mean_squared_error', optimizer='adam', metrics=['mae'])
-    histories = model.fit_generator(train, steps_per_epoch=1, 
-                verbose=0 ,epochs=150, validation_data=test)
-    return histories 
+#lstm shape: [samples, timesteps, features]
 
 def plot_metrics(history):
 
@@ -152,71 +137,107 @@ def plot_metrics(history):
     
     plt.tight_layout()
     plt.show()
+    
 
-#histories = dnn(gentrain, gentest)  #to run, uncomment squeeze from above, but cannot (yet) run the others
-#plot_metrics(histories)
+#NEED BASELINE! -------
 
-def CNN(train, test):
-    model = Sequential()
-    model.add(Conv1D(filters=32, kernel_size=2, input_shape=(n_input, 1),
-                     padding='valid', activation='relu'))
-    model.add(MaxPooling1D())
-    model.add(Flatten())
-    model.add(Dense(250, activation='relu'))
-    model.add(Dense(1))
+
+#-------- /Baseline resuls 
+    
+from keras import Input, layers
+from keras.models import Model
+from keras.optimizers import Adam
+
+
+#KERAS FUNCTIONAL API PRACTICE 
+def MLP(train, test):
+    input_tensor = Input(shape=(n_input, ))      
+    x = layers.Dense(250, activation='relu')(input_tensor)
+    x = layers.Dense(250, activation='relu')(x)
+    x = layers.Dropout(0.2)(x)
+    output_tensor = layers.Dense(1)(x)
+    model = Model(input_tensor, output_tensor)
+    model.summary()
     model.compile(loss='mean_squared_error', optimizer='adam', metrics=['mae'])
-    history = model.fit_generator(train, steps_per_epoch=1, 
-                epochs=100,validation_data=test, verbose=0)
+    history = model.fit_generator(gentrain, steps_per_epoch=1, 
+                    epochs=150,validation_data=gentest, verbose=1)
+    return history
+
+histories = MLP(gentrain, gentest)
+plot_metrics(histories)
+
+#ConvNet
+def CNN(train, test):
+    input_tensor = Input(shape=(n_input, 1))
+    x = layers.Conv1D(filters=32, padding='same' , kernel_size=2)(input_tensor)
+    x = layers.LeakyReLU()(x)
+    x = layers.BatchNormalization()(x)
+    x = layers.MaxPooling1D()(x) 
+    x = layers.Conv1D(filters=32, padding='same' , kernel_size=2)(x)
+    x = layers.LeakyReLU()(x)
+    x = layers.BatchNormalization()(x)
+    x = layers.Flatten()(x)
+    x = layers.Dense(250, activation='relu')(x)
+    x =  layers.Dropout(0.25)(x)
+    x = layers.Dense(125, activation='relu')(x)
+    output_tensor = layers.Dense(1)(x)
+    model = Model(input_tensor, output_tensor)
+    model.summary()
+    adam = Adam()
+    model.compile(loss='mean_squared_error', optimizer=adam, metrics=['mae'])
+    history = model.fit_generator(gentrain, steps_per_epoch=10, 
+                epochs=50,validation_data=gentest, verbose=1)
     return history
 
 histories = CNN(gentrain, gentest)
 plot_metrics(histories)
 
+
+#LSTM 
 def BiLSTM(train, test):
-    model = Sequential()
-    model.add(LSTM(32, input_shape=(n_input,1), return_sequences=True, activation='relu'))
-    model.add(Bidirectional(LSTM(32, activation='relu')))
-    model.add(Dense(250, activation='relu'))
-    model.add(Dense(1))
+    input_tensor = Input(shape=(n_input, 1))
+    x = layers.Bidirectional(layers.LSTM(32, return_sequences=True))(input_tensor)
+    x = layers.LeakyReLU()(x)
+    x = layers.BatchNormalization()(x)
+    x = layers.Bidirectional(layers.LSTM(16, activation='relu'))(x)
+    x = layers.Dropout(0.3)
+    x = layers.Dense(64)(x)
+    x = layers.LeakyReLU()
+    output_tensor = layers.Dense(1)(x)
+    model = Model(input_tensor, output_tensor)
+    model.summary()
     model.compile(loss='mean_squared_error', optimizer='adam', metrics=['mae'])
-    history = model.fit_generator(train, steps_per_epoch=1, 
-                epochs=75,validation_data=test, verbose=1)
+    history = model.fit_generator(gentrain, steps_per_epoch=1, 
+                    epochs=5,validation_data=gentest, verbose=1)
     return history
 
 histories = BiLSTM(gentrain, gentest)
-plot_metrics(histories)
+plot_metrics(histories)    
 
-def Hybrid(train,test):
-    model = Sequential()
-    model.add(Conv1D(filters=64, kernel_size=2, input_shape=(n_input, 1),
-                     padding='valid', activation='relu'))
-    model.add(MaxPooling1D())
-    model.add(Dropout(0.3))
-    model.add(Bidirectional(LSTM(64, activation='relu', return_sequences=True)))
-    model.add(Bidirectional(LSTM(64, activation='relu')))
-    model.add(Dense(250))
-    model.add(Dense(1))
+ 
+def Hybrid(train, test):
+    input_tensor = Input(shape=(n_input, 1))
+    x = layers.Conv1D(filters=32, padding='same' , kernel_size=2)(input_tensor)
+    x = layers.LeakyReLU()(x)
+    x = layers.BatchNormalization()(x)
+    x = layers.MaxPooling1D()(x) 
+    x = layers.Dropout(0.2)(x)
+    x = layers.Bidirectional(layers.LSTM(32, return_sequences=True))(x)
+    x = layers.LeakyReLU()(x)
+    x = layers.BatchNormalization()(x)
+    x = layers.Bidirectional(layers.LSTM(32))(x)
+    x = layers.LeakyReLU()(x)
+    x = layers.Dropout(0.3)(x)
+    x = layers.Dense(250)(x)
+    x = layers.LeakyReLU()(x)
+    output_tensor = layers.Dense(1)(x)
+    model = Model(input_tensor, output_tensor)
     model.compile(loss='mean_squared_error', optimizer='adam', metrics=['mae'])
     history = model.fit_generator(train, steps_per_epoch=1, 
-            epochs=75,validation_data=test, verbose=1)
+            epochs=15,validation_data=test, verbose=1)
     return history
 
-histories = BiLSTM(gentrain, gentest)
-plot_metrics(histories)
-
-
-#KERAS FUNCTIONAL API PRACTICE - works so far
-from keras import Input, layers
-from keras.models import Model
-input_tensor = Input(shape=(n_input, ))
-x = layers.Dense(32, activation='relu')(input_tensor)
-x = layers.Dense(32, activation='relu')(x)
-output_tensor = layers.Dense(1)(x)
-model = Model(input_tensor, output_tensor)
-model.summary()
-
-model.compile(loss='mean_squared_error', optimizer='adam', metrics=['mae'])
-history = model.fit_generator(gentrain, steps_per_epoch=1, 
-                epochs=75,validation_data=gentest, verbose=0)
+histories = Hybrid(gentrain, gentest)
+plot_metrics(histories)    
 
 
