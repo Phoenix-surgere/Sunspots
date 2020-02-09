@@ -145,8 +145,32 @@ def plot_metrics(history):
     
 
 #NEED BASELINE! ------- Use generators, for even comparisons
+#Naive Baseline
+scores = {}
+from sklearn.metrics import mean_squared_error as mse
+series_naive = pd.DataFrame(series)
+series_naive['naive_pred'] = series_naive.shift(1)
+series_naive.dropna(inplace=True)
 
+#Train cv and test MSEs - inverse transformed RMSE reported
+#May not actually need cv, but will keep it for now to be consistent
+naive_mse_tr = mse(series_naive.iloc[0:train_size,0], 
+                   series_naive['naive_pred'].iloc[0:train_size])
 
+naive_mse_vs = mse(series_naive.iloc[train_size+1:train_size+val_size ,0], 
+                   series_naive['naive_pred'].iloc[train_size+1:train_size+val_size])
+
+naive_mse_ts = mse(series_naive.iloc[train_size+val_size+1: ,0], 
+                   series_naive['naive_pred'].iloc[train_size+val_size+1:])
+
+#Unscaled and on same scale on each set
+def append_scores(model, tr, cv, ts):
+    scores[f"{model}_train_RMSE"] =  float(scaler.inverse_transform([tr])**0.5)
+    scores[f"{model}_cv_RMSE"] =   float(scaler.inverse_transform([cv])**0.5)
+    scores[f"{model}_test_RMSE"] =  float(scaler.inverse_transform([ts])**0.5)
+    return scores
+
+append_scores("NaiveBaseline", naive_mse_tr, naive_mse_vs, naive_mse_ts)
 #-------- /Baseline resuls 
     
 from keras import Input, layers
