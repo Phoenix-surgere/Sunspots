@@ -92,22 +92,29 @@ from keras.preprocessing.sequence import TimeseriesGenerator
 from sklearn.preprocessing import StandardScaler as SS
 
 series = array(sunspots) 
+#SCALING:
+train_size = int(len(series) * 0.8)
+val_size = int(len(series) * 0.1)
 
-#series = np.squeeze(series)  #b/c DNN in first layer only works with 1D array w/ TSGenerator - Comment out when LSTM/CNN/ 1st layer
-train = series[0:int(len(series)*0.9)] 
-test = series[int(len(series)*0.9):]
-
-#Scaling added for NNs
 scaler = SS()
-scaler.fit(train)
-train = scaler.transform(train)
-test = scaler.transform(test)
+scaler.fit(series[0:train_size])  #fit only on train data...
+series = scaler.transform(series)  #transform the entire data based on train
 
-# define generator -> Need separate gennie for Validation
-n_input = 3  #or window_size, potential hyperparameter 
-gentrain = TimeseriesGenerator(series, series, length=n_input, batch_size=1) 
-#genval = ...  figure out how to properly set this up
-gentest = TimeseriesGenerator(series, series, length=n_input, batch_size=1)
+#If running DNN, have this line commented
+series = np.squeeze(series)
+
+# Need 3 generators (train, val, test) - see chollet pg 235 (ebook page)
+n_input = 3  #or whichever window_size preferred
+
+gentrain = TSG(series, series, length=n_input, start_index=0,
+                               end_index=train_size, batch_size=1)
+
+genval = TSG(series, series, length=n_input, start_index = train_size+1,
+                             batch_size=1, end_index=train_size+val_size)
+
+gentest = TSG(series, series, length=n_input, start_index = train_size+val_size+1,
+              batch_size=1, end_index=None)
+
 
 def plot_metrics(history):
 
@@ -119,7 +126,6 @@ def plot_metrics(history):
     loss_val = history.history['val_loss']
     
     fig, (ax1, ax2) = plt.subplots(nrows=2, figsize=(7,7))
-    #fig.suptitle('Loss and Metrics History')
 
     ax1.title.set_text('Metrics (MAE) History')
     ax2.title.set_text('Loss (MSE) History')
@@ -162,7 +168,7 @@ def MLP(train, test):
                     epochs=150,validation_data=test, verbose=1)
     return history
 
-histories = MLP(gentrain, gentest)
+histories = MLP(gentrain, genval)
 plot_metrics(histories)
 
 #ConvNet
@@ -188,7 +194,7 @@ def CNN(train, test):
                 epochs=50,validation_data=test, verbose=1)
     return history
 
-histories = CNN(gentrain, gentest)
+histories = CNN(gentrain, genval)
 plot_metrics(histories)
 
 
@@ -211,7 +217,7 @@ def BiLSTM(train, test):
                     epochs=5,validation_data=test, verbose=1)
     return history
 
-histories = BiLSTM(gentrain, gentest)
+histories = BiLSTM(gentrain, genval)
 plot_metrics(histories)    
 
  
@@ -237,7 +243,7 @@ def Hybrid(train, test):
             epochs=15,validation_data=test, verbose=1)
     return history
 
-histories = Hybrid(gentrain, gentest)
+histories = Hybrid(gentrain, genval)
 plot_metrics(histories)    
 
 
